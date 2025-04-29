@@ -1,19 +1,12 @@
-from flask import Flask, request, Response
+from flask import Flask
+import os
 
 app = Flask(__name__)
 
-@app.route("/")
-def index():
-    return "Flask server is running. Visit /voice to test Twilio XML."
+@app.route('/')
+def home():
+    return "Flask app is running on Render!"
 
-@app.route("/voice", methods=["GET", "POST"])
-def voice():
-    response = """
-    <Response>
-        <Say voice="Polly.Joanna">Hello! This is your AI agent speaking.</Say>
-    </Response>
-    """
-    return Response(response, mimetype="text/xml")
-
-if __name__ == "__main__":
-    app.run(debug=True)
+if __name__ == '__main__':
+    port = int(os.environ.get('PORT', 5000))
+    app.run(host='0.0.0.0', port=port)
