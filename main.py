@@ -26,10 +26,11 @@ def index():
 @app.route("/call", methods=["POST"])
 def call():
     to_number = request.form["to"]
+    public_url = os.environ.get("PUBLIC_URL")
     call = client.calls.create(
         to=to_number,
         from_=TWILIO_NUMBER,
-        url=f"{request.url_root}voice"
+        url=f"{public_url}/voice"
     )
     return f"Calling {to_number}..."
 
