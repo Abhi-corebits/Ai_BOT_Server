@@ -1,3 +1,7 @@
-Flask
+flask
 twilio
-gunicorn
+openai
+elevenlabs
+requests
+python-dotenv
+gunicorn 
