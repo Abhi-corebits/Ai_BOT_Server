@@ -29,7 +29,10 @@ def start_call():
         to=request.form["to"],
         from_=os.getenv("TWILIO_PHONE_NUMBER")
     )
-    return {"status": "initiated", "sid": call.sid}
+    # Optional: Flash a message
+    flash("Call initiated successfully!", "success")
+
+    return redirect(url_for("success"))  # Redirect to a success page
 
 # This is where Twilio posts the recorded audio
 @app.route("/process_audio", methods=["POST"])
@@ -110,6 +113,10 @@ Tone: Friendly, formal, and efficient. Prioritize clear communication and a smoo
 @app.route("/static/<path:path>")
 def send_static(path):
     return send_file(f"static/{path}")
+
+@app.route("/success")
+def success():
+    return render_template("success.html")  # Create this file next
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 8000))
