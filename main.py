@@ -24,8 +24,22 @@ def start_call():
     from twilio.rest import Client
     client = Client(os.getenv("TWILIO_ACCOUNT_SID"), os.getenv("TWILIO_AUTH_TOKEN"))
 
+    # Use your Railway public domain here
+    BASE_URL = "https://ai-voice-bot-production-1ecc.up.railway.app"
+
     call = client.calls.create(
-        twiml=f'<Response><Play>{WELCOME_MP3_URL}</Play><Pause length="2"/><Record maxLength="10" action="/process_audio" playBeep="false" recordingStatusCallback="/process_audio"/></Response>',
+        twiml=f'''
+        <Response>
+            <Play>{WELCOME_MP3_URL}</Play>
+            <Pause length="2"/>
+            <Record 
+                maxLength="10" 
+                action="{BASE_URL}/process_audio"
+                recordingStatusCallback="{BASE_URL}/process_audio"
+                playBeep="false" 
+            />
+        </Response>
+        ''',
         to=request.form["to"],
         from_=os.getenv("TWILIO_PHONE_NUMBER")
     )
