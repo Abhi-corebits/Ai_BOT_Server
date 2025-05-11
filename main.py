@@ -29,8 +29,7 @@ def start_call():
         to=request.form["to"],
         from_=os.getenv("TWILIO_PHONE_NUMBER")
     )
-    # Optional: Flash a message
-    flash("Call initiated successfully!", "success")
+    
 
     return redirect(url_for("success"))  # Redirect to a success page
 
