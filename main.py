@@ -1,4 +1,4 @@
-from flask import Flask, request, send_file, Response
+from flask import Flask, request, send_file, Response, render_template
 from twilio.twiml.voice_response import VoiceResponse
 import requests
 import os
@@ -13,6 +13,11 @@ app = Flask(__name__)
 WELCOME_MP3_URL = "https://ai-voice-bot-production-1ecc.up.railway.app/static/welcome.mp3"
 REPLY_AUDIO_PATH = "static/response.mp3"
 
+# Home page route to serve index.html
+@app.route("/", methods=["GET"])
+def home():
+    return render_template("index.html")
+
 # Endpoint to start the call
 @app.route("/call", methods=["POST"])
 def start_call():
@@ -25,7 +30,6 @@ def start_call():
         from_=os.getenv("TWILIO_PHONE_NUMBER")
     )
     return {"status": "initiated", "sid": call.sid}
-
 
 # This is where Twilio posts the recorded audio
 @app.route("/process_audio", methods=["POST"])
@@ -58,44 +62,20 @@ def process_audio():
 Conversation Flow:
 
 1. Start by greeting the candidate and confirming their name.
-
-
 2. Once confirmed, say something like:
 "I'm pleased to inform you that you've been selected for Round 2 of the interview process. Congratulations!"
-
-
 3. Inform them that the next interview is scheduled for the 2nd week of June.
-
-
 4. Ask if they are available at that time so that the appointment can be confirmed.
-
-
 5. If the user says they are not available or wants to shift the date:
-
 Politely say: "Let me check the available slots for you."
-
 Offer an alternative: 4th week of June.
-
-
-
 6. If they accept, ask for confirmation and proceed to confirm the appointment.
-
-
 7. If they still have a problem:
-
 Say: "Unfortunately, no more options are available at this time. Could you please let me know which week would work best for you?"
-
 Once they provide a week, confirm it and finalize the appointment.
-
-
-
 8. End the call by thanking the candidate.
 
-
-
-Tone: Friendly, formal, and efficient. Prioritize clear communication and a smooth user experience.
-
-'''
+Tone: Friendly, formal, and efficient. Prioritize clear communication and a smooth user experience.'''
                 },
                 {
                     "role": "user",
@@ -126,12 +106,10 @@ Tone: Friendly, formal, and efficient. Prioritize clear communication and a smoo
 
     return Response(str(response), mimetype="text/xml")
 
-
 # Serve static files like welcome.mp3 or response.mp3
 @app.route("/static/<path:path>")
 def send_static(path):
     return send_file(f"static/{path}")
-
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 8000))
