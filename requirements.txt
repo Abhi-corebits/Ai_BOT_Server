@@ -5,3 +5,4 @@ elevenlabs
 requests
 python-dotenv
 gunicorn 
+pydub
