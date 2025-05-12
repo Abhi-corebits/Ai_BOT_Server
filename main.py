@@ -2,8 +2,9 @@ from flask import Flask, request, send_file, Response, render_template, redirect
 from twilio.twiml.voice_response import VoiceResponse
 import requests
 import os
+import io
 from dotenv import load_dotenv
-import uuid
+from pydub import AudioSegment
 
 load_dotenv()
 
@@ -13,18 +14,15 @@ app = Flask(__name__)
 WELCOME_MP3_URL = "https://ai-voice-bot-production-1ecc.up.railway.app/static/welcome.mp3"
 REPLY_AUDIO_PATH = "static/response.mp3"
 
-# Home page route to serve index.html
 @app.route("/", methods=["GET"])
 def home():
     return render_template("index.html")
 
-# Endpoint to start the call
 @app.route("/call", methods=["POST"])
 def start_call():
     from twilio.rest import Client
     client = Client(os.getenv("TWILIO_ACCOUNT_SID"), os.getenv("TWILIO_AUTH_TOKEN"))
 
-    # Use your Railway public domain here
     BASE_URL = "https://ai-voice-bot-production-1ecc.up.railway.app"
 
     call = client.calls.create(
@@ -43,11 +41,17 @@ def start_call():
         to=request.form["to"],
         from_=os.getenv("TWILIO_PHONE_NUMBER")
     )
-    
 
-    return redirect(url_for("success"))  # Redirect to a success page
+    return redirect(url_for("success"))
 
-# This is where Twilio posts the recorded audio
+# Convert MP3 to Deepgram-compatible WAV
+def convert_mp3_to_wav(mp3_bytes):
+    mp3_audio = AudioSegment.from_file(io.BytesIO(mp3_bytes), format="mp3")
+    wav_io = io.BytesIO()
+    mp3_audio.set_frame_rate(16000).set_channels(1).export(wav_io, format="wav")
+    wav_io.seek(0)
+    return wav_io
+
 @app.route("/process_audio", methods=["POST"])
 def process_audio():
     try:
@@ -58,11 +62,15 @@ def process_audio():
         audio_file = requests.get(recording_url)
         print("Downloaded audio")
 
+        # Convert MP3 to WAV
+        wav_io = convert_mp3_to_wav(audio_file.content)
+        print("Converted MP3 to WAV")
+
         # Send to Deepgram
         deepgram_response = requests.post(
             "https://api.deepgram.com/v1/listen",
             headers={"Authorization": f"Token {os.getenv('DEEPGRAM_API_KEY')}"},
-            data=audio_file.content
+            data=wav_io
         )
         print(f"Deepgram response: {deepgram_response.status_code}")
         print(deepgram_response.text)
@@ -123,7 +131,7 @@ Once they provide a week, confirm it and finalize the appointment.
 
 Tone: Friendly, formal, and efficient. Prioritize clear communication and a smooth user experience.
 
-'''},  # Same system prompt
+'''},
                     {"role": "user", "content": text}
                 ]
             }
@@ -134,7 +142,7 @@ Tone: Friendly, formal, and efficient. Prioritize clear communication and a smoo
         reply_text = gpt_response.json()["choices"][0]["message"]["content"]
         print(f"GPT Reply: {reply_text}")
 
-        # Convert to audio with ElevenLabs
+        # Convert to speech using ElevenLabs
         tts_response = requests.post(
             "https://api.elevenlabs.io/v1/text-to-speech/90ipbRoKi4CpHXvKVtl0/stream",
             headers={
@@ -149,7 +157,7 @@ Tone: Friendly, formal, and efficient. Prioritize clear communication and a smoo
             f.write(tts_response.content)
         print("Saved response.mp3")
 
-        # Respond with TwiML to play and record again
+        # TwiML response
         response = VoiceResponse()
         response.play("https://ai-voice-bot-production-1ecc.up.railway.app/static/response.mp3")
         response.record(max_length="10", action="/process_audio", play_beep=False)
@@ -161,14 +169,13 @@ Tone: Friendly, formal, and efficient. Prioritize clear communication and a smoo
         print("Error in /process_audio:", e)
         return Response("<Response><Say>Sorry, an error occurred.</Say></Response>", mimetype="text/xml")
 
-# Serve static files like welcome.mp3 or response.mp3
 @app.route("/static/<path:path>")
 def send_static(path):
     return send_file(f"static/{path}")
 
 @app.route("/success")
 def success():
-    return render_template("success.html")  # Create this file next
+    return render_template("success.html")
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 8000))
