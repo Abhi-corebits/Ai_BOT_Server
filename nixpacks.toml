@@ -9,4 +9,4 @@ cmds = [
 ]
 
 [phases.start]
-cmd = "python main.py
+cmd = "python main.py"
