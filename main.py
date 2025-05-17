@@ -163,12 +163,13 @@ Tone: Friendly, formal, and efficient. Prioritize clear communication and a smoo
 print(gpt_response.text)
 
 try:
-    print("Groq full JSON response:", gpt_response.json())
+    groq_json = gpt_response.json()
+    print("Groq full JSON response:", groq_json)
+    reply_text = groq_json["choices"][0]["message"]["content"]
+    print(f"GPT Reply: {reply_text}")
 except Exception as e:
     print("Failed to parse Groq JSON response:", e)
-
-        reply_text = gpt_response.json()["choices"][0]["message"]["content"]
-        print(f"GPT Reply: {reply_text}")
+    reply_text = "Sorry, there was an error with the AI response."
 
         # 8. Convert reply to speech using ElevenLabs
         tts_response = requests.post(
