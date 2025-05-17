@@ -5,6 +5,8 @@ import os
 import io
 from dotenv import load_dotenv
 from pydub import AudioSegment
+from requests.auth import HTTPBasicAuth
+
 
 load_dotenv()
 
@@ -45,32 +47,52 @@ def start_call():
     return redirect(url_for("success"))
 
 # Convert MP3 to Deepgram-compatible WAV
-def convert_mp3_to_wav(mp3_bytes):
-    mp3_audio = AudioSegment.from_file(io.BytesIO(mp3_bytes), format="mp3")
-    wav_io = io.BytesIO()
-    mp3_audio.set_frame_rate(16000).set_channels(1).export(wav_io, format="wav")
+def convert_mp3_to_wav(mp3_data):
+    audio = AudioSegment.from_file(BytesIO(mp3_data), format="mp3")  # <-- specify format!
+    wav_io = BytesIO()
+    audio.export(wav_io, format="wav")
     wav_io.seek(0)
     return wav_io
 
-@app.route("/process_audio", methods=["POST"])
+@app.route('/process_audio', methods=['POST'])
 def process_audio():
     try:
         print("Received request at /process_audio")
+
+        # 1. Append .mp3 and use auth
         recording_url = request.form["RecordingUrl"] + ".mp3"
         print(f"Recording URL: {recording_url}")
 
-        audio_file = requests.get(recording_url)
+        # 2. Authenticated download from Twilio
+        audio_file = requests.get(
+            recording_url,
+            auth=HTTPBasicAuth(os.getenv("TWILIO_ACCOUNT_SID"), os.getenv("TWILIO_AUTH_TOKEN"))
+        )
         print("Downloaded audio")
 
-        # Convert MP3 to WAV
-        wav_io = convert_mp3_to_wav(audio_file.content)
+        # 3. (Optional) Check content-type
+        content_type = audio_file.headers.get("Content-Type", "")
+        if "audio" not in content_type:
+            print("Unexpected content type:", content_type)
+            return "Invalid audio file", 400
+
+        # 4. (Optional) Save audio for debugging
+        with open("latest_recording.mp3", "wb") as debug_file:
+            debug_file.write(audio_file.content)
+            print("Saved downloaded audio for debugging")
+
+        # 5. Convert MP3 to WAV
+        wav_io = convert_mp3_to_wav(audio_file.content)  # Should internally call `AudioSegment.from_file(..., format="mp3")`
         print("Converted MP3 to WAV")
 
-        # Send to Deepgram
+        # 6. Send to Deepgram
         deepgram_response = requests.post(
             "https://api.deepgram.com/v1/listen",
-            headers={"Authorization": f"Token {os.getenv('DEEPGRAM_API_KEY')}" , "Content-Type":"audio/wav"},
-            data=wav_io.read( )
+            headers={
+                "Authorization": f"Token {os.getenv('DEEPGRAM_API_KEY')}",
+                "Content-Type": "audio/wav"
+            },
+            data=wav_io.read()
         )
         print(f"Deepgram response: {deepgram_response.status_code}")
         print(deepgram_response.text)
@@ -78,7 +100,7 @@ def process_audio():
         text = deepgram_response.json()["results"]["channels"][0]["alternatives"][0]["transcript"]
         print(f"Transcript: {text}")
 
-        # Send to Groq (GPT)
+        # 7. Send to Groq (GPT)
         gpt_response = requests.post(
             "https://api.groq.com/openai/v1/chat/completions",
             headers={
@@ -89,7 +111,8 @@ def process_audio():
                 "model": "mixtral-8x7b-32768",
                 "messages": [
                     {"role": "system", "content": '''
-You are a polite and professional female HR representative. Your job is to call candidates to inform them about their selection for the second round of interviews and to schedule their next interview.
+You are a polite and professional female HR representative...
+(keep this as-isYou are a polite and professional female HR representative. Your job is to call candidates to inform them about their selection for the second round of interviews and to schedule their next interview.
 
 Conversation Flow:
 
@@ -130,7 +153,6 @@ Once they provide a week, confirm it and finalize the appointment.
 
 
 Tone: Friendly, formal, and efficient. Prioritize clear communication and a smooth user experience.
-
 '''},
                     {"role": "user", "content": text}
                 ]
@@ -142,7 +164,7 @@ Tone: Friendly, formal, and efficient. Prioritize clear communication and a smoo
         reply_text = gpt_response.json()["choices"][0]["message"]["content"]
         print(f"GPT Reply: {reply_text}")
 
-        # Convert to speech using ElevenLabs
+        # 8. Convert reply to speech using ElevenLabs
         tts_response = requests.post(
             "https://api.elevenlabs.io/v1/text-to-speech/90ipbRoKi4CpHXvKVtl0/stream",
             headers={
@@ -157,7 +179,7 @@ Tone: Friendly, formal, and efficient. Prioritize clear communication and a smoo
             f.write(tts_response.content)
         print("Saved response.mp3")
 
-        # TwiML response
+        # 9. Respond with TwiML
         response = VoiceResponse()
         response.play("https://ai-voice-bot-production-1ecc.up.railway.app/static/response.mp3")
         response.record(max_length="10", action="/process_audio", play_beep=False)
@@ -168,7 +190,7 @@ Tone: Friendly, formal, and efficient. Prioritize clear communication and a smoo
     except Exception as e:
         print("Error in /process_audio:", e)
         return Response("<Response><Say>Sorry, an error occurred.</Say></Response>", mimetype="text/xml")
-
+        
 @app.route("/static/<path:path>")
 def send_static(path):
     return send_file(f"static/{path}")
