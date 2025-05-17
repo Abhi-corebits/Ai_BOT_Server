@@ -160,10 +160,11 @@ Tone: Friendly, formal, and efficient. Prioritize clear communication and a smoo
             }
         )
         print(f"Groq response: {gpt_response.status_code}")
-        print(gpt_response.text)
-         try:
+print(gpt_response.text)
+
+try:
     print("Groq full JSON response:", gpt_response.json())
-         except Exception as e:
+except Exception as e:
     print("Failed to parse Groq JSON response:", e)
 
         reply_text = gpt_response.json()["choices"][0]["message"]["content"]
