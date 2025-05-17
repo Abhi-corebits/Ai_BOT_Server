@@ -69,7 +69,7 @@ def process_audio():
         # Send to Deepgram
         deepgram_response = requests.post(
             "https://api.deepgram.com/v1/listen",
-            headers={"Authorization": f"Token {os.getenv('DEEPGRAM_API_KEY')}" , "Content-Type"="audio/wav"},
+            headers={"Authorization": f"Token {os.getenv('DEEPGRAM_API_KEY')}" , "Content-Type":"audio/wav"},
             data=wav_io.read( )
         )
         print(f"Deepgram response: {deepgram_response.status_code}")
