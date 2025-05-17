@@ -6,6 +6,7 @@ import io
 from dotenv import load_dotenv
 from pydub import AudioSegment
 from requests.auth import HTTPBasicAuth
+from io import BytesIO
 
 
 load_dotenv()
