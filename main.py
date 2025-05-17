@@ -64,33 +64,29 @@ def process_audio():
     try:
         logging.info("Received request at /process_audio")
 
-        # 1. Get the recording URL
+        # 1. Get recording URL
         recording_url = request.form["RecordingUrl"] + ".mp3"
         logging.info(f"Recording URL: {recording_url}")
 
-        # 2. Download MP3 with auth
+        # 2. Download audio with auth
         audio_file = requests.get(
             recording_url,
             auth=HTTPBasicAuth(os.getenv("TWILIO_ACCOUNT_SID"), os.getenv("TWILIO_AUTH_TOKEN"))
         )
-        logging.info("Downloaded audio")
 
-        # 3. Check content type
-        content_type = audio_file.headers.get("Content-Type", "")
-        if "audio" not in content_type:
+        # 3. Verify audio
+        if "audio" not in audio_file.headers.get("Content-Type", ""):
             logging.error("Invalid content type from Twilio")
             return Response("<Response><Say>Invalid audio file.</Say></Response>", mimetype="text/xml")
 
-        # 4. Save MP3 for debugging
+        # 4. Save original recording
         with open("latest_recording.mp3", "wb") as debug_file:
             debug_file.write(audio_file.content)
-        logging.info("Saved latest recording")
 
-        # 5. Convert to WAV
+        # 5. Convert MP3 to WAV
         wav_io = convert_mp3_to_wav(audio_file.content)
-        logging.info("Converted MP3 to WAV")
 
-        # 6. Transcribe with Deepgram
+        # 6. Transcribe via Deepgram
         deepgram_response = requests.post(
             "https://api.deepgram.com/v1/listen",
             headers={
@@ -107,7 +103,7 @@ def process_audio():
         text = deepgram_response.json()["results"]["channels"][0]["alternatives"][0]["transcript"]
         logging.info(f"Transcript: {text}")
 
-        # 7. Send to Groq (GPT)
+        # 7. Generate reply via Groq (GPT)
         gpt_response = requests.post(
             "https://api.groq.com/openai/v1/chat/completions",
             headers={
@@ -143,7 +139,7 @@ Tone: Friendly, formal, and efficient.
         reply_text = gpt_response.json()["choices"][0]["message"]["content"]
         logging.info(f"GPT Reply: {reply_text}")
 
-        # 8. Text to speech using ElevenLabs
+        # 8. Convert reply to speech using ElevenLabs
         tts_response = requests.post(
             "https://api.elevenlabs.io/v1/text-to-speech/90ipbRoKi4CpHXvKVtl0/stream",
             headers={
@@ -157,25 +153,21 @@ Tone: Friendly, formal, and efficient.
             logging.error("ElevenLabs TTS failed")
             return Response("<Response><Say>Could not convert reply to audio.</Say></Response>", mimetype="text/xml")
 
-        # Save TTS audio
+        # 9. Save generated audio
         with open(REPLY_AUDIO_PATH, "wb") as f:
             f.write(tts_response.content)
-
-        # Add delay to ensure file is ready
         time.sleep(0.5)
 
-        # Check if file is valid
+        # 10. Validate file
         if os.path.getsize(REPLY_AUDIO_PATH) < 1000:
             logging.error("TTS audio too small or corrupt")
             return Response("<Response><Say>Generated audio file was invalid.</Say></Response>", mimetype="text/xml")
 
-        # 9. Return TwiML to play reply and continue
+        # 11. Respond with TwiML to play and loop
         response = VoiceResponse()
         response.play(url_for('send_static', path='response.mp3', _external=True))
         response.pause(length=1)
         response.record(max_length="10", action="/process_audio", play_beep=False)
-        logging.info("Responding with TwiML")
-
         return Response(str(response), mimetype="text/xml")
 
     except Exception as e:
