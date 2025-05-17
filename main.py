@@ -8,7 +8,6 @@ from pydub import AudioSegment
 from requests.auth import HTTPBasicAuth
 from io import BytesIO
 
-
 load_dotenv()
 
 app = Flask(__name__)
@@ -83,7 +82,7 @@ def process_audio():
             print("Saved downloaded audio for debugging")
 
         # 5. Convert MP3 to WAV
-        wav_io = convert_mp3_to_wav(audio_file.content)  # Should internally call `AudioSegment.from_file(..., format="mp3")`
+        wav_io = convert_mp3_to_wav(audio_file.content)
         print("Converted MP3 to WAV")
 
         # 6. Send to Deepgram
@@ -112,23 +111,18 @@ def process_audio():
                 "model": "mixtral-8x7b-32768",
                 "messages": [
                     {"role": "system", "content": '''
-You are a polite and professional female HR representative...
-(keep this as-isYou are a polite and professional female HR representative. Your job is to call candidates to inform them about their selection for the second round of interviews and to schedule their next interview.
+You are a polite and professional female HR representative. Your job is to call candidates to inform them about their selection for the second round of interviews and to schedule their next interview.
 
 Conversation Flow:
 
 1. Start by greeting the candidate and confirming their name.
 
-
 2. Once confirmed, say something like:
 "I'm pleased to inform you that you've been selected for Round 2 of the interview process. Congratulations!"
 
-
 3. Inform them that the next interview is scheduled for the 2nd week of June.
 
-
 4. Ask if they are available at that time so that the appointment can be confirmed.
-
 
 5. If the user says they are not available or wants to shift the date:
 
@@ -136,10 +130,7 @@ Politely say: "Let me check the available slots for you."
 
 Offer an alternative: 4th week of June.
 
-
-
 6. If they accept, ask for confirmation and proceed to confirm the appointment.
-
 
 7. If they still have a problem:
 
@@ -147,11 +138,7 @@ Say: "Unfortunately, no more options are available at this time. Could you pleas
 
 Once they provide a week, confirm it and finalize the appointment.
 
-
-
 8. End the call by thanking the candidate.
-
-
 
 Tone: Friendly, formal, and efficient. Prioritize clear communication and a smooth user experience.
 '''},
@@ -159,17 +146,18 @@ Tone: Friendly, formal, and efficient. Prioritize clear communication and a smoo
                 ]
             }
         )
-        print(f"Groq response: {gpt_response.status_code}")
-print(gpt_response.text)
 
-try:
-    groq_json = gpt_response.json()
-    print("Groq full JSON response:", groq_json)
-    reply_text = groq_json["choices"][0]["message"]["content"]
-    print(f"GPT Reply: {reply_text}")
-except Exception as e:
-    print("Failed to parse Groq JSON response:", e)
-    reply_text = "Sorry, there was an error with the AI response."
+        print(f"Groq response: {gpt_response.status_code}")
+        print(gpt_response.text)
+
+        try:
+            groq_json = gpt_response.json()
+            print("Groq full JSON response:", groq_json)
+            reply_text = groq_json["choices"][0]["message"]["content"]
+            print(f"GPT Reply: {reply_text}")
+        except Exception as e:
+            print("Failed to parse Groq JSON response:", e)
+            reply_text = "Sorry, there was an error with the AI response."
 
         # 8. Convert reply to speech using ElevenLabs
         tts_response = requests.post(
@@ -197,7 +185,7 @@ except Exception as e:
     except Exception as e:
         print("Error in /process_audio:", e)
         return Response("<Response><Say>Sorry, an error occurred.</Say></Response>", mimetype="text/xml")
-        
+
 @app.route("/static/<path:path>")
 def send_static(path):
     return send_file(f"static/{path}")
