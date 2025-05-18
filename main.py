@@ -7,6 +7,7 @@ from dotenv import load_dotenv
 from pydub import AudioSegment
 from requests.auth import HTTPBasicAuth
 from io import BytesIO
+import subprocess 
 
 load_dotenv()
 
@@ -19,6 +20,20 @@ REPLY_AUDIO_PATH = "static/response.mp3"
 @app.route("/", methods=["GET"])
 def home():
     return render_template("index.html")
+
+# Function to re-encode MP3 in Twilio-friendly format
+def reencode_mp3_for_twilio(input_file, output_file):
+    command = [
+        "ffmpeg",
+        "-y",
+        "-i", input_file,
+        "-ar", "44100",     # Sample rate
+        "-ac", "1",         # Mono
+        "-b:a", "128k",     # Constant bitrate
+        "-f", "mp3",        # MP3 format
+        output_file
+    ]
+    subprocess.run(command, check=True)
 
 @app.route("/call", methods=["POST"])
 def start_call():
@@ -174,9 +189,13 @@ Tone: Friendly, formal, and efficient. Prioritize clear communication and a smoo
             f.write(tts_response.content)
         print("Saved response.mp3")
 
+        # Re-encode to Twilio-compatible format
+        reencode_mp3_for_twilio(REPLY_AUDIO_PATH, "static/twilio_ready.mp3")
+        print("Re-encoded MP3 for Twilio")
+
         # 9. Respond with TwiML
         response = VoiceResponse()
-        response.play("https://ai-voice-bot-production-1ecc.up.railway.app/static/response.mp3")
+        response.play("https://ai-voice-bot-production-1ecc.up.railway.app/static/twilio_ready.mp3")
         response.record(max_length="10", action="/process_audio", play_beep=False)
         print("Responding with TwiML")
 
