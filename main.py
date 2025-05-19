@@ -199,15 +199,18 @@ Tone: Friendly, formal, and efficient. Prioritize clear communication and a smoo
         # 9. Respond with TwiML
         response = VoiceResponse()
         response.play("https://ai-voice-bot-production-1ecc.up.railway.app/static/twilio_ready.mp3")
-        response.say("Sorry, I couldn't Play The Audio")
+        response.pause(length=1)
         response.record(max_length="10", action="/process_audio", play_beep=False)
-        print("Responding with TwiML")
-
         return Response(str(response), mimetype="text/xml")
+        
 
     except Exception as e:
         print("Error in /process_audio:", e)
         return Response("<Response><Say>Sorry, an error occurred.</Say></Response>", mimetype="text/xml")
+
+@app.route("/static/twilio_ready.mp3")
+def serve_twilio_audio():
+    return send_file("static/twilio_ready.mp3", mimetype="audio/mpeg")
 
 @app.route("/static/<path:path>")
 def send_static(path):
