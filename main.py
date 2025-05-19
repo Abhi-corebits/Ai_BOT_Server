@@ -16,7 +16,8 @@ load_dotenv()
 app = Flask(__name__)
 
 # Constants
-WELCOME_MP3_URL = "https://ai-voice-bot-production-1ecc.up.railway.app/static/welcome.mp3"
+BASE_URL = "https://ai-voice-bot-production-1ecc.up.railway.app"
+WELCOME_MP3_URL = f"{BASE_URL}/static/welcome.mp3"
 REPLY_AUDIO_PATH = "static/response.mp3"
 
 @app.route("/", methods=["GET"])
@@ -42,15 +43,13 @@ def start_call():
     from twilio.rest import Client
     client = Client(os.getenv("TWILIO_ACCOUNT_SID"), os.getenv("TWILIO_AUTH_TOKEN"))
 
-    BASE_URL = "https://ai-voice-bot-production-1ecc.up.railway.app"
-
     call = client.calls.create(
         twiml=f'''
         <Response>
             <Play>{WELCOME_MP3_URL}</Play>
             <Pause length="2"/>
             <Record 
-                maxLength="10" 
+                maxLength="7" 
                 action="{BASE_URL}/process_audio"
                 recordingStatusCallback="{BASE_URL}/process_audio"
                 playBeep="false" 
@@ -65,7 +64,7 @@ def start_call():
 
 # Convert MP3 to Deepgram-compatible WAV
 def convert_mp3_to_wav(mp3_data):
-    audio = AudioSegment.from_file(BytesIO(mp3_data), format="mp3")  # <-- specify format!
+    audio = AudioSegment.from_file(BytesIO(mp3_data), format="mp3")
     wav_io = BytesIO()
     audio.export(wav_io, format="wav")
     wav_io.seek(0)
@@ -76,33 +75,27 @@ def process_audio():
     try:
         print("Received request at /process_audio")
 
-        # 1. Append .mp3 and use auth
         recording_url = request.form["RecordingUrl"] + ".mp3"
         print(f"Recording URL: {recording_url}")
 
-        # 2. Authenticated download from Twilio
         audio_file = requests.get(
             recording_url,
             auth=HTTPBasicAuth(os.getenv("TWILIO_ACCOUNT_SID"), os.getenv("TWILIO_AUTH_TOKEN"))
         )
         print("Downloaded audio")
 
-        # 3. (Optional) Check content-type
         content_type = audio_file.headers.get("Content-Type", "")
         if "audio" not in content_type:
             print("Unexpected content type:", content_type)
             return "Invalid audio file", 400
 
-        # 4. (Optional) Save audio for debugging
         with open("latest_recording.mp3", "wb") as debug_file:
             debug_file.write(audio_file.content)
             print("Saved downloaded audio for debugging")
 
-        # 5. Convert MP3 to WAV
         wav_io = convert_mp3_to_wav(audio_file.content)
         print("Converted MP3 to WAV")
 
-        # 6. Send to Deepgram
         deepgram_response = requests.post(
             "https://api.deepgram.com/v1/listen",
             headers={
@@ -117,7 +110,6 @@ def process_audio():
         text = deepgram_response.json()["results"]["channels"][0]["alternatives"][0]["transcript"]
         print(f"Transcript: {text}")
 
-        # 7. Send to Groq (GPT)
         gpt_response = requests.post(
             "https://api.groq.com/openai/v1/chat/completions",
             headers={
@@ -133,28 +125,17 @@ You are a polite and professional female HR representative. Your job is to call 
 Conversation Flow:
 
 1. Start by greeting the candidate and confirming their name.
-
 2. Once confirmed, say something like:
 "I'm pleased to inform you that you've been selected for Round 2 of the interview process. Congratulations!"
-
 3. Inform them that the next interview is scheduled for the 2nd week of June.
-
 4. Ask if they are available at that time so that the appointment can be confirmed.
-
 5. If the user says they are not available or wants to shift the date:
-
 Politely say: "Let me check the available slots for you."
-
 Offer an alternative: 4th week of June.
-
 6. If they accept, ask for confirmation and proceed to confirm the appointment.
-
 7. If they still have a problem:
-
 Say: "Unfortunately, no more options are available at this time. Could you please let me know which week would work best for you?"
-
 Once they provide a week, confirm it and finalize the appointment.
-
 8. End the call by thanking the candidate.
 
 Tone: Friendly, formal, and efficient. Prioritize clear communication and a smooth user experience.
@@ -176,7 +157,6 @@ Tone: Friendly, formal, and efficient. Prioritize clear communication and a smoo
             print("Failed to parse Groq JSON response:", e)
             reply_text = "Sorry, there was an error with the AI response."
 
-        # 8. Convert reply to speech using ElevenLabs
         tts_response = requests.post(
             "https://api.elevenlabs.io/v1/text-to-speech/90ipbRoKi4CpHXvKVtl0/stream",
             headers={
@@ -191,18 +171,20 @@ Tone: Friendly, formal, and efficient. Prioritize clear communication and a smoo
             f.write(tts_response.content)
         print("Saved response.mp3")
 
-        # Re-encode to Twilio-compatible format
         reencode_mp3_for_twilio(REPLY_AUDIO_PATH, "static/twilio_ready.mp3")
         print("Re-encoded MP3 for Twilio")
         time.sleep(1)
 
-        # 9. Respond with TwiML
         response = VoiceResponse()
-        response.play("https://ai-voice-bot-production-1ecc.up.railway.app/static/twilio_ready.mp3")
-        response.pause(length=1)
-        response.record(max_length="10", action="/process_audio", play_beep=False)
+        response.play(f"{BASE_URL}/static/twilio_ready.mp3")
+        response.pause(length=1.5)
+        response.record(
+            max_length="7",
+            action=f"{BASE_URL}/process_audio",
+            recordingStatusCallback=f"{BASE_URL}/process_audio",
+            play_beep=False
+        )
         return Response(str(response), mimetype="application/xml")
-        
 
     except Exception as e:
         print("Error in /process_audio:", e)
