@@ -201,7 +201,7 @@ Tone: Friendly, formal, and efficient. Prioritize clear communication and a smoo
         response.play("https://ai-voice-bot-production-1ecc.up.railway.app/static/twilio_ready.mp3")
         response.pause(length=1)
         response.record(max_length="10", action="/process_audio", play_beep=False)
-        return Response(str(response), mimetype="text/xml")
+        return Response(str(response), mimetype="application/xml")
         
 
     except Exception as e:
