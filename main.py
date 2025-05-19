@@ -123,7 +123,7 @@ def process_audio():
                 "Content-Type": "application/json"
             },
             json={
-                "model": "meta-llama/llama-guard-4-12b",
+                "model": "llama3-70b-8192",
                 "messages": [
                     {"role": "system", "content": '''
 You are a polite and professional female HR representative. Your job is to call candidates to inform them about their selection for the second round of interviews and to schedule their next interview.
