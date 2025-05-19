@@ -8,6 +8,8 @@ from pydub import AudioSegment
 from requests.auth import HTTPBasicAuth
 from io import BytesIO
 import subprocess 
+import time
+from flask import send_from_directory
 
 load_dotenv()
 
@@ -192,10 +194,12 @@ Tone: Friendly, formal, and efficient. Prioritize clear communication and a smoo
         # Re-encode to Twilio-compatible format
         reencode_mp3_for_twilio(REPLY_AUDIO_PATH, "static/twilio_ready.mp3")
         print("Re-encoded MP3 for Twilio")
+        time.sleep(1)
 
         # 9. Respond with TwiML
         response = VoiceResponse()
         response.play("https://ai-voice-bot-production-1ecc.up.railway.app/static/twilio_ready.mp3")
+        response.say("Sorry, I couldn't Play The Audio")
         response.record(max_length="10", action="/process_audio", play_beep=False)
         print("Responding with TwiML")
 
