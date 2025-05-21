@@ -78,16 +78,29 @@ def process_audio():
         recording_url = request.form["RecordingUrl"] + ".mp3"
         print(f"Recording URL: {recording_url}")
 
-        audio_file = requests.get(
-            recording_url,
-            auth=HTTPBasicAuth(os.getenv("TWILIO_ACCOUNT_SID"), os.getenv("TWILIO_AUTH_TOKEN"))
-        )
-        print("Downloaded audio")
+        # 2. Retry audio download from Twilio (wait if audio isn't ready yet)
+        MAX_RETRIES = 5
+        audio_file = None
 
-        content_type = audio_file.headers.get("Content-Type", "")
-        if "audio" not in content_type:
-            print("Unexpected content type:", content_type)
-            return "Invalid audio file", 400
+        for attempt in range(1, MAX_RETRIES + 1):
+            print(f"Attempt {attempt}: Downloading audio...")
+            response = requests.get(
+                recording_url,
+                auth=HTTPBasicAuth(os.getenv("TWILIO_ACCOUNT_SID"), os.getenv("TWILIO_AUTH_TOKEN"))
+            )
+            content_type = response.headers.get("Content-Type", "")
+
+            if "audio" in content_type:
+                audio_file = response
+                print("Audio file is ready and downloaded.")
+                break
+            else:
+                print(f"Audio not ready yet (Content-Type: {content_type}). Retrying...")
+                time.sleep(2)  # Wait 2 seconds before retrying
+
+        if not audio_file:
+            print("Failed to download audio after retries.")
+            return Response("<Response><Say>Sorry, your recording is not available yet. Please try again later.</Say></Response>", mimetype="text/xml")
 
         with open("latest_recording.mp3", "wb") as debug_file:
             debug_file.write(audio_file.content)
