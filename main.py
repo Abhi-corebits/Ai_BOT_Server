@@ -79,7 +79,7 @@ def process_audio():
         print(f"Recording URL: {recording_url}")
 
         # 2. Retry audio download from Twilio (wait if audio isn't ready yet)
-        MAX_RETRIES = 5
+        MAX_RETRIES = 6
         audio_file = None
 
         for attempt in range(1, MAX_RETRIES + 1):
@@ -96,7 +96,7 @@ def process_audio():
                 break
             else:
                 print(f"Audio not ready yet (Content-Type: {content_type}). Retrying...")
-                time.sleep(2)  # Wait 2 seconds before retrying
+                time.sleep(0.5)  # Wait 0.5 seconds before retrying
 
         if not audio_file:
             print("Failed to download audio after retries.")
